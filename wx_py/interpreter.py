@@ -17,7 +17,7 @@ class Interpreter(InteractiveInterpreter):
     
     revision = __revision__
     
-    def __init__(self, locals=None, rawin=None, 
+    def __init__(self, locals=None, rawin=raw_input, 
                  stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr,
                  showInterpIntro=True):
         """Create an interactive interpreter object."""
@@ -25,10 +25,13 @@ class Interpreter(InteractiveInterpreter):
         self.stdin = stdin
         self.stdout = stdout
         self.stderr = stderr
-        if rawin:
-            import __builtin__
-            __builtin__.raw_input = rawin
-            del __builtin__
+        self.rawin = rawin
+# BUG: permanent raw_input redirection is a bad idea. 
+# We must use same mechanism as stdin, stdout and stderr 
+#         if rawin:
+#             import __builtin__
+#             __builtin__.raw_input = rawin
+#             del __builtin__
         if showInterpIntro:
             copyright = 'Type "help", "copyright", "credits" or "license"'
             copyright += ' for more information.'
@@ -82,55 +85,64 @@ class Interpreter(InteractiveInterpreter):
                         command=command, more=more, source=source)
         return more
         
-    def runsource(self, source):
-        """Compile and run source code in the interpreter."""
-        stdin, stdout, stderr = sys.stdin, sys.stdout, sys.stderr
-        sys.stdin, sys.stdout, sys.stderr = \
-                   self.stdin, self.stdout, self.stderr
-        more = InteractiveInterpreter.runsource(self, source)
-        # this was a cute idea, but didn't work...
-        #more = self.runcode(compile(source,'',
-        #               ('exec' if self.useExecMode else 'single')))
-        
-        
+    def _redirect_io(self):
+        import __builtin__
+        self._saved_io_funs = (sys.stdin, 
+                               sys.stdout, 
+                               sys.stderr, 
+                               __builtin__.raw_input) 
+
+        sys.stdin, sys.stdout, sys.stderr, __builtin__.raw_input = \
+            self.stdin, self.stdout, self.stderr, self.rawin
+        del __builtin__
+                   
+    def _restore_io(self):
         # If sys.std* is still what we set it to, then restore it.
         # But, if the executed source changed sys.std*, assume it was
         # meant to be changed and leave it. Power to the people.
+        import __builtin__
+        stdin, stdout, stderr, rawin = self._saved_io_funs
+
         if sys.stdin == self.stdin:
             sys.stdin = stdin
         else:
             self.stdin = sys.stdin
+        
         if sys.stdout == self.stdout:
             sys.stdout = stdout
         else:
             self.stdout = sys.stdout
+        
         if sys.stderr == self.stderr:
             sys.stderr = stderr
         else:
             self.stderr = sys.stderr
+            
+        if __builtin__.raw_input == self.rawin:
+            __builtin__.raw_input = rawin 
+        else:
+            self.rawin = __builtin__.raw_input
+        del __builtin__
+        
+    def runsource(self, source):
+        """Compile and run source code in the interpreter."""
+        self._redirect_io()
+        try:
+            more = InteractiveInterpreter.runsource(self, source)
+            # this was a cute idea, but didn't work...
+            #more = self.runcode(compile(source,'',
+            #               ('exec' if self.useExecMode else 'single')))
+        finally:
+            self._restore_io()
         return more
         
     def runModule(self, mod):
         """Compile and run an ast module in the interpreter."""
-        stdin, stdout, stderr = sys.stdin, sys.stdout, sys.stderr
-        sys.stdin, sys.stdout, sys.stderr = \
-                   self.stdin, self.stdout, self.stderr
-        self.runcode(compile(mod,'','single'))
-        # If sys.std* is still what we set it to, then restore it.
-        # But, if the executed source changed sys.std*, assume it was
-        # meant to be changed and leave it. Power to the people.
-        if sys.stdin == self.stdin:
-            sys.stdin = stdin
-        else:
-            self.stdin = sys.stdin
-        if sys.stdout == self.stdout:
-            sys.stdout = stdout
-        else:
-            self.stdout = sys.stdout
-        if sys.stderr == self.stderr:
-            sys.stderr = stderr
-        else:
-            self.stderr = sys.stderr
+        self._redirect_io()
+        try:
+            self.runcode(compile(mod,'','single'))
+        finally:
+            self._restore_io()
         return False
     
     def getAutoCompleteKeys(self):
@@ -141,12 +153,12 @@ class Interpreter(InteractiveInterpreter):
         """Return list of auto-completion options for a command.
         
         The list of options will be based on the locals namespace."""
-        stdin, stdout, stderr = sys.stdin, sys.stdout, sys.stderr
-        sys.stdin, sys.stdout, sys.stderr = \
-                   self.stdin, self.stdout, self.stderr
-        l = introspect.getAutoCompleteList(command, self.locals,
+        self._redirect_io()
+        try:
+            l = introspect.getAutoCompleteList(command, self.locals,
                                            *args, **kwds)
-        sys.stdin, sys.stdout, sys.stderr = stdin, stdout, stderr
+        finally:
+            self._restore_io()
         return l
 
     def getCallTip(self, command='', *args, **kwds):
