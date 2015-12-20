@@ -435,7 +435,7 @@ class Frame(wx.Frame):
         answer = d.ShowModal()
         d.Destroy()
         if (answer == wx.ID_OK):
-            win.ClearAll()
+            win.clear()
             if hasattr(win,'prompt'):
                 win.prompt()
 
