@@ -2365,7 +2365,13 @@ class SlicesShell(editwindow.EditWindow):
         
         skip=self.BackspaceWMarkers(force=True)
         if skip:
-            self.DeleteBack()
+            if self.GetCurrentPos() <= 2:
+                # if hit num enter after empty buffer, the first marker destroyed
+                markerMask = self.MarkerGet(0)
+                self.DeleteBack()
+                self.MarkerSet(0, markerMask)
+            else:
+                self.DeleteBack()
         
         if self.GetCurrentLine()==self.GetLineCount()-1:
             self.write(os.linesep,markertype='Input')
