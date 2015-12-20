@@ -3508,13 +3508,9 @@ class SlicesShell(editwindow.EditWindow):
         self.SetSelection(startpos, endpos)
         self.ReplaceSelection('')
         
-        hasSyntaxError=False
-        result = self.BreakTextIntoCommands(command)
-        if result[0] == None:
-            commands=[command]
-            hasSyntaxError=True
-        else:
-            commands=result
+        commands = self.BreakTextIntoCommands(text)
+        if commands[0] == None: # syntax error
+            commands = [ text ]
         
         for command in commands:
             command = command.replace('\n', os.linesep)
