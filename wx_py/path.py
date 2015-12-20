@@ -5,7 +5,8 @@ __author__ = "David N. Mashburn <david.n.mashburn@gmail.com>"
 
 import os
 import glob
-import commands
+import subprocess
+#import commands
 
 def pwd():
     print os.getcwd()
@@ -31,6 +32,7 @@ def ls(s='*',fullpath=False):
 # If you want this kind of behavior to be available, please use ipython
 # This is NOT a feature or goal of the Py project!
 def sx(s=''):
-    print commands.getoutput(s)
+    print subprocess.check_output(s, stderr=subprocess.STDOUT)
+    #print commands.getoutput(s)
 
 #cd('~',usePrint=False)
