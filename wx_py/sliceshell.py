@@ -3119,7 +3119,7 @@ class SlicesShell(editwindow.EditWindow):
         if not self.autoCallTip and not forceCallTip:
             return
         startpos = self.GetCurrentPos()
-        if argspec and insertcalltip and self.callTipInsert:
+        if argspec and insertcalltip and (self.callTipInsert or forceCallTip):
             # write with undo history...
             cpos=self.GetCurrentPos()
             s=argspec + ')'
@@ -3138,6 +3138,15 @@ class SlicesShell(editwindow.EditWindow):
     
     def OnCallTipAutoCompleteManually (self, shiftDown):
         """AutoComplete and Calltips manually."""
+        if shiftDown:
+            # show calltip
+            currpos = self.GetCurrentPos()
+            stoppos = self.PositionFromLine(self.GetIOSlice()[0])
+            func_call = self.GetTextRange(stoppos, currpos)
+            insertcalltip = self.CallTipActive() and func_call.endswith('(')
+            self.autoCallTipShow(func_call, insertcalltip, True)
+            return
+        
         if self.AutoCompActive():
             self.AutoCompCancel()
         currpos = self.GetCurrentPos()
@@ -3163,27 +3172,27 @@ class SlicesShell(editwindow.EditWindow):
                 stoppos = self.PositionFromLine(self.GetIOSlice()[0])
                 textbefore = self.GetTextRange(stoppos, pointavailpos)
                 self.autoCompleteShow(textbefore, len (textbehind))
-            else:
-                #call CallTips
-                cpos = pointavailpos
-                begpos = -1
-                while cpos > stoppos:
-                    if chr(self.GetCharAt(cpos)).isspace():
-                        begpos = cpos
-                        break
-                    cpos -= 1
-                if begpos == -1:
-                    begpos = cpos
-                ctips = self.GetTextRange (begpos, currpos)
-                ctindex = ctips.find ('(')
-                if ctindex != -1 and not self.CallTipActive():
-                    #insert calltip, if current pos is '(', otherwise show it only
-                    self.autoCallTipShow( ctips[:ctindex + 1], 
-                          self.GetCharAt(currpos - 1) == ord('(') and
-                              self.GetCurrentPos() == self.GetTextLength(),
-                          True )
-                
-
+#             else:
+#                 # THIS IS BUGY
+#                 #call CallTips
+#                 cpos = pointavailpos
+#                 begpos = -1
+#                 while cpos > stoppos:
+#                     if chr(self.GetCharAt(cpos)).isspace():
+#                         begpos = cpos
+#                         break
+#                     cpos -= 1
+#                 if begpos == -1:
+#                     begpos = cpos
+#                 ctips = self.GetTextRange (begpos, currpos)
+#                 ctindex = ctips.find ('(')
+#                 if ctindex != -1 and not self.CallTipActive():
+#                     #insert calltip, if current pos is '(', otherwise show it only
+#                     self.autoCallTipShow( ctips[:ctindex + 1], 
+#                           self.GetCharAt(currpos - 1) == ord('(') and
+#                               self.GetCurrentPos() == self.GetTextLength(),
+#                           True )
+                    
     def writeOut(self, text):
         """Replacement for stdout."""
         self.write(text,markertype='Output')
