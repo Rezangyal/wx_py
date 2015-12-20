@@ -488,7 +488,7 @@ class Frame(wx.Frame):
     def OnWrap(self, event):
         win = wx.Window.FindFocus()
         win.SetWrapMode(event.IsChecked())
-        wx.FutureCall(1, self.shell.EnsureCaretVisible)
+        wx.FutureCall(1, win.EnsureCaretVisible)
 
     def OnSaveHistory(self, event):
         self.autoSaveHistory = event.IsChecked()
@@ -497,7 +497,8 @@ class Frame(wx.Frame):
         self.SaveHistory()
 
     def OnClearHistory(self, event):
-        self.shell.clearHistory()
+        win = wx.Window.FindFocus()
+        win.clearHistory()
 
     def OnEnableShellMode(self, event):
         self.enableShellMode = event.IsChecked()
