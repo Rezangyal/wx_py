@@ -17,6 +17,7 @@ import keyword
 import os
 import sys
 import time
+import Queue
 
 from buffer import Buffer
 import dispatcher
@@ -632,6 +633,8 @@ class SlicesShell(editwindow.EditWindow):
         if locals is None:
             import __main__
             locals = __main__.__dict__
+
+        self._write_queue = Queue.Queue()
 
         # Grab these so they can be restored by self.redirect* methods.
         self.stdin = sys.stdin
@@ -2362,7 +2365,9 @@ class SlicesShell(editwindow.EditWindow):
                 #print 'command: ',command
                 wx.FutureCall(1, self.EnsureCaretVisible)
                 self.runningSlice=None
-        
+
+        self.write(None) # flush queued output from background threads
+
         skip=self.BackspaceWMarkers(force=True)
         if skip:
             if self.GetCurrentPos() <= 2:
@@ -2890,6 +2895,27 @@ class SlicesShell(editwindow.EditWindow):
     def write(self,text,markertype='Input',silent=False):
         """Display text in the slices shell.
            Replace line endings with OS-specific endings."""
+        # gui manipulation is not possible from background thread (=> crash)
+        # in background thread we add to _write_queue the text 
+        # and in main thread flush the queue
+        # write(None) in main thread == flush queue ( no print )
+        
+        if text is not None:
+            self._write_queue.put((text, markertype, silent))
+        
+        if wx.Thread_IsMain():
+            while not self._write_queue.empty():
+                text, markertype, silent = self._write_queue.get() 
+                self._write_internal(text, markertype, silent)
+        else:
+            if self._write_queue.qsize() == 1:
+                wx.CallAfter(self.write, None)
+    
+    def _write_internal(self,text,markertype='Input',silent=False):
+        """Display text in the slices shell.
+           Replace line endings with OS-specific endings."""
+        
+        assert wx.Thread_IsMain()
         
         cur_line_num = self.GetCurrentLine()
         
